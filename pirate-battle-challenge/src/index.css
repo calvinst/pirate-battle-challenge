@@ -13,7 +13,131 @@ body,
 }
 
 .game-host canvas {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: contain;
+}
+
+body {
+  color: #f2e2b6;
+  font-family: system-ui, sans-serif;
+}
+
+.screen {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+button,
+input {
+  font: inherit;
+  padding: 0.5rem 1rem;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #ffd54a;
+  outline-offset: 2px;
+}
+
+[aria-invalid='true'] {
+  border: 2px solid #ff6b6b;
+}
+
+small[role='alert'] {
+  color: #ff9a9a;
+}
+
+.match {
+  position: relative;
+  height: 100%;
+}
+
+.hud {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  background: rgb(0 0 0 / 55%);
+  border-radius: 6px;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  background: rgb(0 0 0 / 70%);
+}
+
+.touch-controls {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-controls {
+    position: absolute;
+    inset: auto 0 12px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+    pointer-events: none;
+  }
+
+  .touch-pad {
+    display: grid;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .touch-pad-move {
+    grid-template-columns: repeat(3, 64px);
+    grid-template-areas: '. forward .' 'left reverse right';
+  }
+
+  .touch-pad-fire {
+    grid-template-columns: repeat(3, 64px);
+    align-items: end;
+  }
+
+  .touch-left { grid-area: left; }
+  .touch-forward { grid-area: forward; }
+  .touch-reverse { grid-area: reverse; }
+  .touch-right { grid-area: right; }
+
+  .touch-btn {
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    font-size: 1.5rem;
+    border-radius: 50%;
+    border: 2px solid #f2e2b6;
+    background: rgb(0 0 0 / 50%);
+    color: #f2e2b6;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .touch-btn:active {
+    background: rgb(242 226 182 / 35%);
+  }
 }

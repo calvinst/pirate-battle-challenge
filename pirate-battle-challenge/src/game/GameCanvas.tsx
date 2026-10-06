@@ -1,44 +1,111 @@
 import { useEffect, useRef } from 'react'
-import { createKeyboardInput } from './input/keyboard'
-import { createGameLoop } from './loop/gameLoop'
+import { createKeyboardInput, type KeyboardInput } from './input/keyboard'
+import { mergeInputs, type TouchInput } from './input/touch'
+import { createGameLoop, type GameLoop } from './loop/gameLoop'
+import {
+  createHudSnapshot,
+  createMatchResult,
+  type HudSnapshot,
+  type MatchResult,
+} from './matchInfo'
 import { createPixiRenderer, type Renderer } from './render/pixiRenderer'
-import { createWorld, stepWorld } from './simulation/world'
+import type { GameTextures } from './render/assets'
+import type { GameConfig } from './simulation/config'
+import { createInput, createWorld, stepWorld } from './simulation/world'
 
-export function GameCanvas() {
+interface GameCanvasProps {
+  /** lida apenas ao montar; mudanças valem para a próxima partida */
+  config: GameConfig
+  textures: GameTextures
+  paused: boolean
+  touch: TouchInput
+  /** emitido só quando pontos, segundos restantes ou vida mudam */
+  onHud: (hud: HudSnapshot) => void
+  onFinish: (result: MatchResult) => void
+}
+
+export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }: GameCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const callbacks = useRef({ onHud, onFinish })
+  const pausedRef = useRef(paused)
+  const loopRef = useRef<GameLoop | null>(null)
+  const keyboardRef = useRef<KeyboardInput | null>(null)
+
+  useEffect(() => {
+    callbacks.current = { onHud, onFinish }
+  }, [onHud, onFinish])
+
+  // Parar o loop descarta o tempo acumulado: a retomada não repete movimento nem disparos.
+  useEffect(() => {
+    pausedRef.current = paused
+    keyboardRef.current?.setEnabled(!paused)
+    if (paused) touch.reset()
+    if (paused) loopRef.current?.stop()
+    else loopRef.current?.start()
+  }, [paused, touch])
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
 
-    let cancelled = false
+    const abort = new AbortController()
     let renderer: Renderer | undefined
-    let stopLoop: (() => void) | undefined
-    const world = createWorld()
+    const world = createWorld(config)
     const keyboard = createKeyboardInput()
+    keyboard.setEnabled(!pausedRef.current)
+    keyboardRef.current = keyboard
 
-    void createPixiRenderer(host, world).then((r) => {
-      if (cancelled) {
-        r.destroy()
-        return
-      }
-      renderer = r
-      const loop = createGameLoop({
-        fixedStep: 1 / 60,
-        maxFrameTime: 0.25,
-        update: (dt) => stepWorld(world, keyboard.state, dt),
-        render: () => r.render(world),
+    let lastHud = createHudSnapshot(world)
+    let finished = false
+    const combined = createInput()
+    callbacks.current.onHud(lastHud)
+
+    createPixiRenderer(host, world, textures, abort.signal)
+      .then((r) => {
+        if (!r) return
+        renderer = r
+        const loop = createGameLoop({
+          fixedStep: 1 / 60,
+          maxFrameTime: 0.25,
+          update: (dt) => {
+            mergeInputs(keyboard.state, touch.state, combined)
+            stepWorld(world, combined, dt)
+
+            const hud = createHudSnapshot(world)
+            if (
+              hud.score !== lastHud.score ||
+              hud.timeRemaining !== lastHud.timeRemaining ||
+              hud.health !== lastHud.health
+            ) {
+              lastHud = hud
+              callbacks.current.onHud(hud)
+            }
+
+            if (world.match.status === 'over' && !finished) {
+              finished = true
+              callbacks.current.onFinish(createMatchResult(world))
+            }
+          },
+          render: () => {
+            r.render(world)
+          },
+        })
+        loopRef.current = loop
+        if (!pausedRef.current) loop.start()
       })
-      loop.start()
-      stopLoop = loop.stop
-    })
+      .catch((error: unknown) => {
+        if (!abort.signal.aborted) console.error('Failed to start renderer', error)
+      })
 
     return () => {
-      cancelled = true
+      abort.abort()
       keyboard.destroy()
-      stopLoop?.()
+      keyboardRef.current = null
+      loopRef.current?.stop()
+      loopRef.current = null
       renderer?.destroy()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a partida usa o snapshot inicial da config
   }, [])
 
   return <div ref={hostRef} className="game-host" />

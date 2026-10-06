@@ -82,7 +82,36 @@ export interface WorldState {
   match: MatchState
   spawnTimer: number
   nextEntityId: number
+  /** eventos recentes para a renderização; o renderer só lê */
+  events: SimEvent[]
+  nextEventId: number
   random: () => number
+}
+
+/** Id usado em `SimEvent.targetId` para o navio do jogador. */
+export const PLAYER_TARGET_ID = 0
+
+export interface SimEvent {
+  id: number
+  /** `world.time` em que ocorreu */
+  time: number
+  type: 'shot' | 'hit' | 'explosion'
+  x: number
+  y: number
+  /** navio atingido, em `hit` */
+  targetId?: number
+}
+
+const EVENT_TTL = 2
+
+const emit = (
+  world: WorldState,
+  type: SimEvent['type'],
+  at: Vec2,
+  targetId?: number,
+): void => {
+  world.events.push({ id: world.nextEventId++, time: world.time, type, x: at.x, y: at.y, targetId })
+  while (world.events[0] && world.time - world.events[0].time > EVENT_TTL) world.events.shift()
 }
 
 export const createInput = (): InputState => ({
@@ -137,6 +166,8 @@ export const createWorld = (
     },
     spawnTimer: snapshot.spawn.interval,
     nextEntityId: 1,
+    events: [],
+    nextEventId: 1,
     random: mulberry32(seed),
   }
 }
@@ -163,6 +194,7 @@ const spawnProjectile = (
   angle: number,
   inherited: Vec2,
 ): void => {
+  emit(world, 'shot', origin)
   world.projectiles.push({
     owner,
     position: { x: origin.x, y: origin.y },
@@ -385,6 +417,8 @@ const stepEnemies = (world: WorldState, dt: number): void => {
     // Chaser explode no impacto; não pontua.
     if (enemy.kind === 'chaser' && distance(enemy.position, player.position) < enemy.radius + player.radius) {
       player.health -= config.chaser.contactDamage
+      emit(world, 'hit', player.position, PLAYER_TARGET_ID)
+      emit(world, 'explosion', enemy.position)
       continue
     }
     survivors.push(enemy)
@@ -419,10 +453,12 @@ const stepProjectiles = (world: WorldState, dt: number): void => {
       )
       if (target) {
         target.health -= p.damage
+        emit(world, 'hit', p.position, target.id)
         continue
       }
     } else if (distance(p.position, player.position) < player.radius + p.radius) {
       player.health -= p.damage
+      emit(world, 'hit', p.position, PLAYER_TARGET_ID)
       continue
     }
     kept.push(p)
@@ -433,6 +469,7 @@ const stepProjectiles = (world: WorldState, dt: number): void => {
 
 const scoreDestroyedEnemies = (world: WorldState): void => {
   const alive = world.enemies.filter((e) => e.health > 0)
+  for (const e of world.enemies) if (e.health <= 0) emit(world, 'explosion', e.position)
   world.match.score += world.enemies.length - alive.length
   world.enemies = alive
 }
@@ -461,6 +498,7 @@ export const stepWorld = (world: WorldState, input: InputState, dt: number): voi
 
   if (player.health <= 0) {
     player.health = 0
+    emit(world, 'explosion', player.position)
     endMatch(world, 'death')
   } else if (match.timeRemaining <= 0) {
     endMatch(world, 'time')

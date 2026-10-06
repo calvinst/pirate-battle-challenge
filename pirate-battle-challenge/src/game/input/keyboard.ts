@@ -2,6 +2,8 @@ import type { InputState } from '../simulation/world'
 
 export interface KeyboardInput {
   state: InputState
+  /** Desativado, ignora as teclas e zera o estado (usado na pausa). */
+  setEnabled: (enabled: boolean) => void
   destroy: () => void
 }
 
@@ -25,12 +27,16 @@ export const createKeyboardInput = (): KeyboardInput => {
     state.fireRight = has('KeyE')
   }
 
+  let enabled = true
+
   const onKeyDown = (e: KeyboardEvent) => {
+    if (!enabled) return
     if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault()
     down.add(e.code)
     sync()
   }
   const onKeyUp = (e: KeyboardEvent) => {
+    if (!enabled) return
     down.delete(e.code)
     sync()
   }
@@ -45,6 +51,10 @@ export const createKeyboardInput = (): KeyboardInput => {
 
   return {
     state,
+    setEnabled: (value) => {
+      enabled = value
+      if (!value) onBlur()
+    },
     destroy: () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)

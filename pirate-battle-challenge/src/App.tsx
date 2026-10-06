@@ -1,7 +1,85 @@
-import { GameCanvas } from './game/GameCanvas'
+import { useState } from 'react'
+import { toMatchRecord } from './api/contracts'
+import { getPlayer } from './api/player'
+import { useMatchSync } from './api/useMatchSync'
+import type { MatchResult } from './game/matchInfo'
+import { loadLastResult, loadOptions, saveLastResult, saveOptions } from './storage'
+import { MainMenu } from './ui/MainMenu'
+import { MatchScreen } from './ui/MatchScreen'
+import { OptionsScreen } from './ui/OptionsScreen'
+import { ResultScreen } from './ui/ResultScreen'
+
+type Screen = 'menu' | 'options' | 'match' | 'result'
 
 function App() {
-  return <GameCanvas />
+  const [screen, setScreen] = useState<Screen>('menu')
+  const [options, setOptions] = useState(loadOptions)
+  const [lastResult, setLastResult] = useState(loadLastResult)
+  // Muda a cada partida para remontar o combate do zero.
+  const [matchId, setMatchId] = useState(0)
+  const { enqueue, retryPending, registrationOf } = useMatchSync()
+
+  const play = () => {
+    setMatchId((id) => id + 1)
+    setScreen('match')
+  }
+
+  const finish = (result: MatchResult) => {
+    saveLastResult(result)
+    setLastResult(result)
+    enqueue(toMatchRecord(result, getPlayer()))
+    setScreen('result')
+  }
+
+  switch (screen) {
+    case 'options':
+      return (
+        <OptionsScreen
+          options={options}
+          onSave={(next) => {
+            saveOptions(next)
+            setOptions(next)
+          }}
+          onBack={() => {
+            setScreen('menu')
+          }}
+        />
+      )
+    case 'match':
+      return (
+        <MatchScreen
+          key={matchId}
+          options={options}
+          onFinish={finish}
+          onQuit={() => {
+            setScreen('menu')
+          }}
+        />
+      )
+    case 'result':
+      return lastResult ? (
+        <ResultScreen
+          result={lastResult}
+          registration={registrationOf(lastResult.id)}
+          onRetry={retryPending}
+          onPlayAgain={play}
+          onMainMenu={() => {
+            setScreen('menu')
+          }}
+        />
+      ) : null
+    default:
+      return (
+        <MainMenu
+          options={options}
+          lastResult={lastResult}
+          onPlay={play}
+          onOptions={() => {
+            setScreen('options')
+          }}
+        />
+      )
+  }
 }
 
 export default App

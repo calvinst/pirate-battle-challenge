@@ -75,7 +75,7 @@ export const defaultConfig: GameConfig = {
   },
   player: {
     maxHealth: 100,
-    radius: 14,
+    radius: 20,
     maxSpeed: 180,
     reverseSpeed: 60,
     acceleration: 120,
@@ -88,14 +88,14 @@ export const defaultConfig: GameConfig = {
   },
   chaser: {
     maxHealth: 20,
-    radius: 12,
+    radius: 18,
     speed: 110,
     turnRate: 1.6,
     contactDamage: 25,
   },
   shooter: {
     maxHealth: 40,
-    radius: 14,
+    radius: 20,
     speed: 70,
     turnRate: 1.2,
     preferredDistance: 260,
@@ -103,4 +103,53 @@ export const defaultConfig: GameConfig = {
     aimTolerance: 0.3,
     weapon: { damage: 10, speed: 300, ttl: 1.8, radius: 4, cooldown: 1.8 },
   },
+}
+
+/** Opções editáveis pelo jogador na tela Options. */
+export interface GameOptions {
+  matchDuration: number
+  spawnInterval: number
+}
+
+export const defaultOptions: GameOptions = {
+  matchDuration: defaultConfig.matchDuration,
+  spawnInterval: defaultConfig.spawn.interval,
+}
+
+export type OptionErrors = Partial<Record<keyof GameOptions, string>>
+
+export const validateOptions = (options: GameOptions): OptionErrors => {
+  const errors: OptionErrors = {}
+  const { matchDuration, spawnInterval } = options
+  if (
+    !Number.isFinite(matchDuration) ||
+    matchDuration < MIN_MATCH_DURATION ||
+    matchDuration > MAX_MATCH_DURATION
+  ) {
+    errors.matchDuration = `Must be between ${MIN_MATCH_DURATION} and ${MAX_MATCH_DURATION} seconds.`
+  }
+  if (
+    !Number.isFinite(spawnInterval) ||
+    spawnInterval < MIN_SPAWN_INTERVAL ||
+    spawnInterval > MAX_SPAWN_INTERVAL
+  ) {
+    errors.spawnInterval = `Must be between ${MIN_SPAWN_INTERVAL} and ${MAX_SPAWN_INTERVAL} seconds.`
+  }
+  return errors
+}
+
+/** Combina as opções do jogador com a configuração base; lança se forem inválidas. */
+export const createConfig = (
+  options: GameOptions = defaultOptions,
+  base: GameConfig = defaultConfig,
+): GameConfig => {
+  const errors = validateOptions(options)
+  if (Object.keys(errors).length > 0) {
+    throw new RangeError(Object.values(errors).join(' '))
+  }
+  return {
+    ...base,
+    matchDuration: options.matchDuration,
+    spawn: { ...base.spawn, interval: options.spawnInterval },
+  }
 }
