@@ -1,0 +1,19 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: #05243a;
+}
+
+.game-host {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+.game-host canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
