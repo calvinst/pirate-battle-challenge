@@ -1,3 +1,4 @@
+import type { PerfReport } from './perf'
 import type { WorldState } from './simulation/world'
 
 /** Instrumentação de testes E2E; só ativa com `?e2e` na URL. */
@@ -20,12 +21,19 @@ export interface GameTestSnapshot {
 declare global {
   interface Window {
     __game?: GameTestApi
+    /** Métricas ao vivo do modo de profiling. */
+    __perf?: { report: () => PerfReport }
+    /** Relatório da última partida em modo de profiling; sobrevive à desmontagem. */
+    __perfLast?: PerfReport
   }
 }
 
 const params = new URLSearchParams(window.location.search)
 
 export const isE2E = params.has('e2e')
+
+/** Modo de profiling: tempo real, jogador invulnerável e métricas de frame. */
+export const isPerf = params.has('perf')
 
 /** Semente fixa para partidas reproduzíveis nos testes. */
 export const e2eSeed = (): number | undefined => {

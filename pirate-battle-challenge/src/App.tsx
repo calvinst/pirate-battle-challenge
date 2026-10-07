@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toMatchRecord } from './api/contracts'
 import { getPlayer } from './api/player'
 import { useMatchSync } from './api/useMatchSync'
+import { installUiSounds } from './game/audio/audioEngine'
 import type { MatchResult } from './game/matchInfo'
 import { loadLastResult, loadOptions, saveLastResult, saveOptions } from './storage'
 import { MainMenu, type LogTab } from './ui/MainMenu'
@@ -20,6 +21,8 @@ function App() {
   // Muda a cada partida para remontar o combate do zero.
   const [matchId, setMatchId] = useState(0)
   const { enqueue, retryPending, registrationOf } = useMatchSync()
+
+  useEffect(() => installUiSounds(), [])
 
   const play = () => {
     setMatchId((id) => id + 1)

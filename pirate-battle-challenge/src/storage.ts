@@ -110,3 +110,11 @@ export const loadPending = (): MatchRecord[] => asMatchRecords(readJson(PENDING_
 export const savePending = (records: MatchRecord[]): void => {
   writeJson(PENDING_KEY, records)
 }
+
+const MUTED_KEY = 'pirate-battle:muted'
+
+export const loadMuted = (): boolean => readJson(MUTED_KEY) === true
+
+export const saveMuted = (muted: boolean): void => {
+  writeJson(MUTED_KEY, muted)
+}

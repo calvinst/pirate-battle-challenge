@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createGameAudio, type GameAudio } from './audio/gameAudio'
 import { createKeyboardInput, type KeyboardInput } from './input/keyboard'
 import { mergeInputs, type TouchInput } from './input/touch'
 import { createGameLoop, type GameLoop } from './loop/gameLoop'
@@ -8,11 +9,12 @@ import {
   type HudSnapshot,
   type MatchResult,
 } from './matchInfo'
+import { createPerfRecorder } from './perf'
 import { createPixiRenderer, type Renderer } from './render/pixiRenderer'
 import type { GameTextures } from './render/assets'
 import type { GameConfig } from './simulation/config'
 import { createInput, createWorld, stepWorld } from './simulation/world'
-import { createSnapshot, e2eSeed, isE2E } from './testHook'
+import { createSnapshot, e2eSeed, isE2E, isPerf } from './testHook'
 
 interface GameCanvasProps {
   /** lida apenas ao montar; mudanças valem para a próxima partida */
@@ -31,6 +33,7 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
   const pausedRef = useRef(paused)
   const loopRef = useRef<GameLoop | null>(null)
   const keyboardRef = useRef<KeyboardInput | null>(null)
+  const audioRef = useRef<GameAudio | null>(null)
 
   useEffect(() => {
     callbacks.current = { onHud, onFinish }
@@ -40,6 +43,7 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
   useEffect(() => {
     pausedRef.current = paused
     keyboardRef.current?.setEnabled(!paused)
+    audioRef.current?.setPaused(paused)
     if (paused) touch.reset()
     if (paused) loopRef.current?.stop()
     else loopRef.current?.start()
@@ -62,10 +66,18 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
     callbacks.current.onHud(lastHud)
 
     const FIXED_STEP = 1 / 60
+    const perf = isPerf ? createPerfRecorder() : null
+    if (perf) window.__perf = { report: perf.report }
+    let simulationMs = 0
+    let lastFrameAt = 0
 
     const update = (dt: number) => {
+      const startedAt = perf ? performance.now() : 0
       mergeInputs(keyboard.state, touch.state, combined)
+      // Profiling mede a partida inteira, então o jogador não morre.
+      if (perf) world.player.health = world.player.maxHealth
       stepWorld(world, combined, dt)
+      audioRef.current?.update(world)
 
       const hud = createHudSnapshot(world)
       if (
@@ -79,8 +91,10 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
 
       if (world.match.status === 'over' && !finished) {
         finished = true
+        if (perf) window.__perfLast = perf.report()
         callbacks.current.onFinish(createMatchResult(world))
       }
+      if (perf) simulationMs += performance.now() - startedAt
     }
 
     createPixiRenderer(host, world, textures, abort.signal)
@@ -107,10 +121,30 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
           maxFrameTime: 0.25,
           update,
           render: () => {
+            if (!perf) {
+              r.render(world)
+              return
+            }
+            const startedAt = performance.now()
             r.render(world)
+            const finishedAt = performance.now()
+            if (lastFrameAt > 0) {
+              perf.frame(
+                startedAt - lastFrameAt,
+                simulationMs,
+                finishedAt - startedAt,
+                world.enemies.length,
+                world.projectiles.length,
+              )
+            }
+            lastFrameAt = startedAt
+            simulationMs = 0
           },
         })
         loopRef.current = loop
+        const audio = createGameAudio()
+        audioRef.current = audio
+        if (pausedRef.current) audio.setPaused(true)
         if (!pausedRef.current) loop.start()
       })
       .catch((error: unknown) => {
@@ -124,6 +158,9 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
       keyboardRef.current = null
       loopRef.current?.stop()
       loopRef.current = null
+      audioRef.current?.destroy()
+      audioRef.current = null
+      delete window.__perf
       renderer?.destroy()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a partida usa o snapshot inicial da config

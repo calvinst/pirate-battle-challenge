@@ -95,15 +95,19 @@ export interface WorldState {
 /** Id usado em `SimEvent.targetId` para o navio do jogador. */
 export const PLAYER_TARGET_ID = 0
 
+export type ShotKind = 'front' | 'broadside' | 'enemy'
+
 export interface SimEvent {
   id: number
   /** `world.time` em que ocorreu */
   time: number
-  type: 'shot' | 'hit' | 'explosion'
+  type: 'shot' | 'hit' | 'collision' | 'splash' | 'explosion'
   x: number
   y: number
-  /** navio atingido, em `hit` */
+  /** navio atingido, em `hit` e `collision` */
   targetId?: number
+  /** origem do disparo, em `shot` */
+  weapon?: ShotKind
 }
 
 const EVENT_TTL = 2
@@ -112,9 +116,9 @@ const emit = (
   world: WorldState,
   type: SimEvent['type'],
   at: Vec2,
-  targetId?: number,
+  extra: { targetId?: number; weapon?: ShotKind } = {},
 ): void => {
-  world.events.push({ id: world.nextEventId++, time: world.time, type, x: at.x, y: at.y, targetId })
+  world.events.push({ id: world.nextEventId++, time: world.time, type, x: at.x, y: at.y, ...extra })
   while (world.events[0] && world.time - world.events[0].time > EVENT_TTL) world.events.shift()
 }
 
@@ -198,8 +202,9 @@ const spawnProjectile = (
   origin: Vec2,
   angle: number,
   inherited: Vec2,
+  shot: ShotKind,
 ): void => {
-  emit(world, 'shot', origin)
+  emit(world, 'shot', origin, { weapon: shot })
   world.projectiles.push({
     owner,
     position: { x: origin.x, y: origin.y },
@@ -226,6 +231,7 @@ const fireFront = (world: WorldState): void => {
     },
     player.rotation,
     player.velocity,
+    'front',
   )
 }
 
@@ -250,6 +256,7 @@ const fireBroadside = (world: WorldState, side: -1 | 1): void => {
       },
       angle,
       player.velocity,
+      'broadside',
     )
   }
 }
@@ -471,6 +478,7 @@ const stepEnemies = (world: WorldState, dt: number): void => {
           },
           enemy.rotation,
           { x: 0, y: 0 },
+          'enemy',
         )
         enemy.cooldown = cfg.weapon.cooldown
       }
@@ -484,7 +492,7 @@ const stepEnemies = (world: WorldState, dt: number): void => {
     // Chaser explode no impacto; não pontua.
     if (enemy.kind === 'chaser' && distance(enemy.position, player.position) < enemy.radius + player.radius) {
       player.health -= config.chaser.contactDamage
-      emit(world, 'hit', player.position, PLAYER_TARGET_ID)
+      emit(world, 'collision', player.position, { targetId: PLAYER_TARGET_ID })
       emit(world, 'explosion', enemy.position)
       continue
     }
@@ -512,7 +520,10 @@ const stepProjectiles = (world: WorldState, dt: number): void => {
     ) {
       continue
     }
-    if (distance(p.position, island.position) < island.radius + p.radius) continue
+    if (distance(p.position, island.position) < island.radius + p.radius) {
+      emit(world, 'splash', p.position)
+      continue
+    }
 
     if (p.owner === 'player') {
       const target = world.enemies.find(
@@ -520,12 +531,12 @@ const stepProjectiles = (world: WorldState, dt: number): void => {
       )
       if (target) {
         target.health -= p.damage
-        emit(world, 'hit', p.position, target.id)
+        emit(world, 'hit', p.position, { targetId: target.id })
         continue
       }
     } else if (distance(p.position, player.position) < player.radius + p.radius) {
       player.health -= p.damage
-      emit(world, 'hit', p.position, PLAYER_TARGET_ID)
+      emit(world, 'hit', p.position, { targetId: PLAYER_TARGET_ID })
       continue
     }
     kept.push(p)

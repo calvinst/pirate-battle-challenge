@@ -1,0 +1,25 @@
+import { defineConfig, devices } from '@playwright/test'
+
+const PORT = 4173
+
+/** Profiling de longa duração; fica fora da suíte padrão (`npm run perf`). */
+export default defineConfig({
+  testDir: 'perf',
+  workers: 1,
+  fullyParallel: false,
+  reporter: [['list']],
+  use: {
+    ...devices['Desktop Chrome'],
+    baseURL: `http://localhost:${PORT}`,
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 1,
+    locale: 'en-US',
+    timezoneId: 'UTC',
+  },
+  webServer: {
+    command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+})

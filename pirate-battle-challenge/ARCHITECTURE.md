@@ -7,7 +7,7 @@ This document describes the main decisions behind Pirate Battle. For setup, comm
 ```mermaid
 flowchart LR
   subgraph React
-    App --> Screens[Menu / Options / Match / Result]
+    App --> Screens["Menu / Options / Captain's Log / Match / Result"]
     Screens --> Tabs[Ranking and History tabs]
   end
   subgraph Game
@@ -84,6 +84,28 @@ Everything is a circle, which keeps the tests cheap and predictable:
 - **Canvas:** the renderer uses `resolution = min(devicePixelRatio, 2)` and `autoDensity`; CSS scales the canvas to its container preserving the aspect ratio.
 - **Cleanup:** leaving a match aborts the init signal, removes the keyboard listeners, stops the loop and destroys the Pixi application with its children. No timers or listeners outlive the match.
 
+## UI, layout and accessibility
+
+- **Navigation:** `App` holds a small screen state (`menu`, `options`, `log`, `match`, `result`). The Ranking and Match History buttons on the menu open the Captain's Log on the chosen tab.
+- **Look:** panels, buttons, counters and icons use the supplied UI sprites. The panel uses `border-image` with the 9-slice borders from `ui_sheet.json`; buttons are stretched backgrounds with hover, pressed and disabled variants.
+- **Match layout:** the match screen is a column (HUD, arena, touch pads). On portrait screens the HUD gets its own row; on landscape and desktop the HUD floats over the arena and, on touch devices, the pads float over it too. The touch pad size derives from the viewport width so both pads fit any phone.
+- **Focus:** the pause dialog uses `useFocusTrap`, which keeps Tab inside the dialog and restores the previous focus on close. The Captain's Log tabs use roving `tabIndex` and arrow, Home and End keys.
+- **Screen reader output:** the HUD renders its values with visually hidden labels (Score: 3, Time: 80s, Health: 90/100) and is not live. A separate polite live region announces only pausing and critical health (25 % or less), derived from state during render, so the timer is never announced every second.
+- **Forms:** validation errors are rendered with `role=alert` and linked through `aria-describedby`; invalid inputs set `aria-invalid`.
+
+## Audio
+
+`src/game/audio/` has two parts:
+
+- `audioEngine.ts` owns a single Web Audio `AudioContext` with a master gain. It decodes the WAV files into buffers (`loadSounds`), plays one-shots (`playSound`) and loops (`startLoop`), and holds the mute flag (persisted in `localStorage`). The context is created only after the first user gesture, which satisfies browser autoplay rules; `installUiSounds` creates it on the first pointer or key press and plays a click for every UI button.
+- `gameAudio.ts` turns the simulation into sound. Like the renderer it only reads the world: it handles each new `SimEvent` once (`shot`, `hit`, `collision`, `splash`, `explosion`) and derives the rest from state (score increases, health at or below 25 %, 10 seconds left, match end). A broadside emits one event per cannon, so the broadside sound is played once per volley. An ocean loop plays during the match and a sailing loop follows the ship speed. Pausing silences the loops and plays the pause cue.
+
+Sound is optional by design: files that fail to load are logged and skipped, so loading problems never block a match. Sounds are loaded together with the textures (shared progress bar). The E2E suite does not load or play sounds, because it steps the simulation manually.
+
+## Profiling mode
+
+`?perf` in the URL turns on a profiling mode used by `npm run perf` (`perf/profile.spec.ts`): the match runs in real time, the player cannot die (so the whole duration is played), and `src/game/perf.ts` records, per frame, the frame interval, the CPU time of the simulation and of `renderer.render`, and the entity count. The report of the last match is left in `window.__perfLast`. Results and methodology are in [docs/performance/PERFORMANCE.md](docs/performance/PERFORMANCE.md).
+
 ## Input
 
 `createKeyboardInput` and the touch input produce the same `InputState`; `mergeInputs` combines them every step, so keyboard and touch can be used together. Keyboard listeners exist only while a match is mounted, so game keys are not captured in menus. Touch buttons use pointer events with pointer capture and release on cancel or lost capture.
@@ -98,6 +120,7 @@ All access goes through `src/storage.ts` (and the mock database in `src/mocks/db
 | `pirate-battle:last-result` | Last finished match, shown on the menu after a refresh |
 | `pirate-battle:pending-matches` | Matches awaiting confirmation |
 | `pirate-battle:player` | Stable local player id and name |
+| `pirate-battle:muted` | Sound preference |
 | `pirate-battle:mock-matches` | Confirmed matches of the mock API |
 | `pirate-battle:mock-scenario` | Selected network scenario |
 
@@ -142,7 +165,9 @@ Playwright drives the real app in Chromium (desktop and mobile profiles) against
 - replaces the real-time loop with manual stepping through `window.__game.advance(seconds)`, which runs the same `stepWorld` with the real keyboard and touch inputs;
 - exposes a read-only `snapshot()` of the world.
 
-Seeds are chosen on purpose: seed 7 produces a Chaser as the first enemy, so a player standing still survives a 60 s match with a 30 s spawn interval; seed 1 reliably kills a stationary player. Spawning and enemy navigation are also covered by node-level simulation tests (`e2e/simulation.spec.ts`) that run `stepWorld` directly without a browser. The suite covers options, movement and limits, firing and cooldowns, both ending conditions, restart, ranking and history states, registration, recovery from a lost response and from a refresh, and visual regression of the menu, arena and result screens.
+Seeds are chosen on purpose: seed 7 produces a Chaser as the first enemy, so a player standing still survives a 60 s match with a 30 s spawn interval; seed 1 reliably kills a stationary player. Spawning and enemy navigation are also covered by node-level simulation tests (`e2e/simulation.spec.ts`) that run `stepWorld` directly without a browser.
+
+Other suites: `accessibility.spec.ts` (focus trap, keyboard navigation, touch controls that are hidden with a fine pointer and drive the ship on the mobile profile, layout fitting the screen) and `visual.spec.ts` (menu, Captain's Log, arena and result screen). Baselines are versioned in `e2e/visual.spec.ts-snapshots/` and are platform specific (generated on Windows). The suite covers options, movement and limits, firing and cooldowns, both ending conditions, restart, ranking and history states, registration, recovery from a lost response and from a refresh, and visual regression of the menu, arena and result screens.
 
 ## Balance decisions
 
@@ -164,8 +189,8 @@ The Chaser is slower than the player so it can be outrun and shot; the Shooter s
 
 - Enemies steer around the island with a simple tangent detour, not full path-finding; other obstacles would need a real navigation approach.
 - Only a subset of the network failures from the challenge is simulated (success, empty, slow, HTTP 500, unavailable submit, lost response). Variable latency, out-of-order responses, 4xx responses and per-endpoint failures are not implemented yet.
-- The mobile layout does not lock an orientation and has not been tuned for small screens.
-- Sound effects are not used.
-- Performance profiling (frame rate, frame-time percentile, memory over repeated matches) has not been recorded yet.
+- Both orientations are supported on mobile, but the layout was only checked on the Pixel 7 profile used in the tests.
+- Color contrast was judged visually and has not been measured with a tool.
+- Audio output is not covered by the automated tests (the E2E suite does not load sounds); it has to be checked by ear.
 - Ship sprites use the 1x assets; high density screens may look slightly soft.
 - Visual baselines are platform specific.

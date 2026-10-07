@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { GAME_SOUNDS, loadSounds } from '../game/audio/audioEngine'
 import { loadGameTextures, type GameTextures } from '../game/render/assets'
+import { isE2E } from '../game/testHook'
 
 export type TexturesState =
   | { status: 'loading'; progress: number }
@@ -12,10 +14,28 @@ export const useGameTextures = () => {
 
   useEffect(() => {
     let cancelled = false
-    loadGameTextures((progress) => {
-      if (!cancelled) setState({ status: 'loading', progress })
-    })
-      .then((textures) => {
+    let texturesProgress = 0
+    let soundsProgress = 0
+    const report = () => {
+      if (!cancelled) {
+        setState({ status: 'loading', progress: (texturesProgress + soundsProgress) / 2 })
+      }
+    }
+    // Os sons são opcionais (falhas não bloqueiam) e ficam fora dos testes E2E.
+    const sounds = isE2E
+      ? Promise.resolve()
+      : loadSounds(GAME_SOUNDS, (p) => {
+          soundsProgress = p
+          report()
+        })
+    Promise.all([
+      loadGameTextures((p) => {
+        texturesProgress = p
+        report()
+      }),
+      sounds,
+    ])
+      .then(([textures]) => {
         if (!cancelled) setState({ status: 'ready', textures })
       })
       .catch((error: unknown) => {

@@ -156,10 +156,10 @@ export const createPixiRenderer = async (
       lastEventId = event.id
       if (event.type === 'shot') {
         addEffect(small, event.x, event.y, event.time, 0.12, 0.35)
-      } else if (event.type === 'hit') {
+      } else if (event.type === 'hit' || event.type === 'collision') {
         if (event.targetId !== undefined) lastHit.set(event.targetId, event.time)
         addEffect(small, event.x, event.y, event.time, 0.25, 0.7)
-      } else {
+      } else if (event.type === 'explosion') {
         addEffect(explosion, event.x, event.y, event.time, 0.6, 1.2)
       }
     }
