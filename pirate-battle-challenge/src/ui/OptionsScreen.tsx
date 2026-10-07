@@ -37,57 +37,63 @@ export function OptionsScreen({ options, onSave, onBack }: OptionsScreenProps) {
 
   return (
     <main className="screen">
-      <h1>Options</h1>
-      <form onSubmit={submit} noValidate>
-        <div className="field">
-          <label htmlFor="duration">Game session time (s)</label>
-          <input
-            id="duration"
-            type="number"
-            inputMode="decimal"
-            min={MIN_MATCH_DURATION}
-            max={MAX_MATCH_DURATION}
-            value={duration}
-            aria-invalid={errors.matchDuration ? true : undefined}
-            aria-describedby="duration-help"
-            onChange={(e) => {
-              setDuration(e.target.value)
-            }}
-          />
-          <small id="duration-help" role={errors.matchDuration ? 'alert' : undefined}>
-            {errors.matchDuration ?? `${MIN_MATCH_DURATION} to ${MAX_MATCH_DURATION} seconds.`}
-          </small>
-        </div>
+      <div className="panel">
+        <h1>Options</h1>
+        <form onSubmit={submit} noValidate>
+          <div className="field">
+            <label htmlFor="duration">Game session time (s)</label>
+            <input
+              id="duration"
+              className="input"
+              type="number"
+              inputMode="decimal"
+              min={MIN_MATCH_DURATION}
+              max={MAX_MATCH_DURATION}
+              value={duration}
+              aria-invalid={errors.matchDuration ? true : undefined}
+              aria-describedby="duration-help"
+              onChange={(e) => {
+                setDuration(e.target.value)
+              }}
+            />
+            <small id="duration-help" role={errors.matchDuration ? 'alert' : undefined}>
+              {errors.matchDuration ?? `${MIN_MATCH_DURATION} to ${MAX_MATCH_DURATION} seconds.`}
+            </small>
+          </div>
 
-        <div className="field">
-          <label htmlFor="spawn">Enemy spawn time (s)</label>
-          <input
-            id="spawn"
-            type="number"
-            inputMode="decimal"
-            step="0.1"
-            min={MIN_SPAWN_INTERVAL}
-            max={MAX_SPAWN_INTERVAL}
-            value={interval}
-            aria-invalid={errors.spawnInterval ? true : undefined}
-            aria-describedby="spawn-help"
-            onChange={(e) => {
-              setInterval(e.target.value)
-            }}
-          />
-          <small id="spawn-help" role={errors.spawnInterval ? 'alert' : undefined}>
-            {errors.spawnInterval ?? `${MIN_SPAWN_INTERVAL} to ${MAX_SPAWN_INTERVAL} seconds.`}
-          </small>
-        </div>
+          <div className="field">
+            <label htmlFor="spawn">Enemy spawn time (s)</label>
+            <input
+              id="spawn"
+              className="input"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={MIN_SPAWN_INTERVAL}
+              max={MAX_SPAWN_INTERVAL}
+              value={interval}
+              aria-invalid={errors.spawnInterval ? true : undefined}
+              aria-describedby="spawn-help"
+              onChange={(e) => {
+                setInterval(e.target.value)
+              }}
+            />
+            <small id="spawn-help" role={errors.spawnInterval ? 'alert' : undefined}>
+              {errors.spawnInterval ?? `${MIN_SPAWN_INTERVAL} to ${MAX_SPAWN_INTERVAL} seconds.`}
+            </small>
+          </div>
 
-        <div className="actions">
-          <button type="submit">Save</button>
-          <button type="button" onClick={onBack}>
-            Back
-          </button>
-        </div>
-        <p role="status">{saved ? 'Options saved.' : ''}</p>
-      </form>
+          <div className="row">
+            <button type="submit" className="btn btn-sm">
+              Save
+            </button>
+            <button type="button" className="btn-secondary btn-sm" onClick={onBack}>
+              Back
+            </button>
+          </div>
+          <p role="status">{saved ? 'Options saved.' : ''}</p>
+        </form>
+      </div>
     </main>
   )
 }

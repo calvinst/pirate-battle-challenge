@@ -4,15 +4,17 @@ import { getPlayer } from './api/player'
 import { useMatchSync } from './api/useMatchSync'
 import type { MatchResult } from './game/matchInfo'
 import { loadLastResult, loadOptions, saveLastResult, saveOptions } from './storage'
-import { MainMenu } from './ui/MainMenu'
+import { MainMenu, type LogTab } from './ui/MainMenu'
+import { LogScreen } from './ui/LogScreen'
 import { MatchScreen } from './ui/MatchScreen'
 import { OptionsScreen } from './ui/OptionsScreen'
 import { ResultScreen } from './ui/ResultScreen'
 
-type Screen = 'menu' | 'options' | 'match' | 'result'
+type Screen = 'menu' | 'options' | 'log' | 'match' | 'result'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('menu')
+  const [logTab, setLogTab] = useState<LogTab>('ranking')
   const [options, setOptions] = useState(loadOptions)
   const [lastResult, setLastResult] = useState(loadLastResult)
   // Muda a cada partida para remontar o combate do zero.
@@ -45,6 +47,16 @@ function App() {
           }}
         />
       )
+    case 'log':
+      return (
+        <LogScreen
+          initialTab={logTab}
+          options={options}
+          onBack={() => {
+            setScreen('menu')
+          }}
+        />
+      )
     case 'match':
       return (
         <MatchScreen
@@ -71,11 +83,14 @@ function App() {
     default:
       return (
         <MainMenu
-          options={options}
           lastResult={lastResult}
           onPlay={play}
           onOptions={() => {
             setScreen('options')
+          }}
+          onOpenLog={(tab) => {
+            setLogTab(tab)
+            setScreen('log')
           }}
         />
       )

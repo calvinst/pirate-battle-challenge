@@ -29,6 +29,8 @@ export interface Enemy {
   health: number
   maxHealth: number
   cooldown: number
+  /** lado escolhido para contornar a ilha: 0 = sem desvio */
+  detourSide: -1 | 0 | 1
 }
 
 export interface Island {
@@ -82,6 +84,8 @@ export interface WorldState {
   match: MatchState
   spawnTimer: number
   nextEntityId: number
+  /** inimigos já gerados por tipo */
+  spawned: Record<EnemyKind, number>
   /** eventos recentes para a renderização; o renderer só lê */
   events: SimEvent[]
   nextEventId: number
@@ -166,6 +170,7 @@ export const createWorld = (
     },
     spawnTimer: snapshot.spawn.interval,
     nextEntityId: 1,
+    spawned: { chaser: 0, shooter: 0 },
     events: [],
     nextEventId: 1,
     random: mulberry32(seed),
@@ -315,38 +320,49 @@ const stepPlayer = (world: WorldState, input: InputState, dt: number): void => {
 const findSpawnPoint = (world: WorldState, radius: number): Vec2 => {
   const { spawn } = world.config
   const { player, island } = world
-  let best: Vec2 | null = null
-  let bestDist = -1
+
+  const isClear = (p: Vec2): boolean =>
+    distance(p, island.position) - island.radius - radius >= spawn.islandMargin &&
+    world.enemies.every((e) => distance(p, e.position) >= e.radius + radius + spawn.islandMargin)
+
   for (let i = 0; i < spawn.maxAttempts; i++) {
     const p = {
       x: radius + world.random() * (world.width - 2 * radius),
       y: radius + world.random() * (world.height - 2 * radius),
     }
-    if (distance(p, island.position) - island.radius - radius < spawn.islandMargin) continue
-    const dPlayer = distance(p, player.position)
-    if (dPlayer >= spawn.minPlayerDistance) return p
-    if (dPlayer > bestDist) {
-      best = p
-      bestDist = dPlayer
+    if (isClear(p) && distance(p, player.position) >= spawn.minPlayerDistance) return p
+  }
+
+  // Sem sorteio válido: varre uma grade e usa o ponto livre mais distante do jogador.
+  const columns = 16
+  const rows = 9
+  let best: Vec2 = { x: radius, y: radius }
+  let bestDist = -1
+  for (let gx = 0; gx < columns; gx++) {
+    for (let gy = 0; gy < rows; gy++) {
+      const p = {
+        x: radius + (gx / (columns - 1)) * (world.width - 2 * radius),
+        y: radius + (gy / (rows - 1)) * (world.height - 2 * radius),
+      }
+      if (!isClear(p)) continue
+      const d = distance(p, player.position)
+      if (d > bestDist) {
+        best = p
+        bestDist = d
+      }
     }
   }
-  // Sem candidato válido: usa o canto livre mais distante do jogador.
-  return (
-    best ??
-    [
-      { x: radius, y: radius },
-      { x: world.width - radius, y: radius },
-      { x: radius, y: world.height - radius },
-      { x: world.width - radius, y: world.height - radius },
-    ].reduce((a, b) =>
-      distance(a, player.position) >= distance(b, player.position) ? a : b,
-    )
-  )
+  return best
 }
 
 const spawnEnemy = (world: WorldState): void => {
-  const { config } = world
-  const kind: EnemyKind = world.random() < config.spawn.chaserChance ? 'chaser' : 'shooter'
+  const { config, spawned } = world
+  let kind: EnemyKind = world.random() < config.spawn.chaserChance ? 'chaser' : 'shooter'
+  // Garante os dois tipos: o segundo spawn é sempre o tipo que ainda não apareceu.
+  const other: EnemyKind = kind === 'chaser' ? 'shooter' : 'chaser'
+  if (spawned[kind] > 0 && spawned[other] === 0) kind = other
+  spawned[kind]++
+
   const cfg = config[kind]
   const position = findSpawnPoint(world, cfg.radius)
   world.enemies.push({
@@ -358,7 +374,52 @@ const spawnEnemy = (world: WorldState): void => {
     health: cfg.maxHealth,
     maxHealth: cfg.maxHealth,
     cooldown: kind === 'shooter' ? config.shooter.weapon.cooldown : 0,
+    detourSide: 0,
   })
+}
+
+/**
+ * Rumo até `target` contornando a ilha. `blocked` indica que a linha reta cruza a ilha.
+ * O lado do desvio fica gravado no inimigo para não oscilar quando o alvo está atrás da ilha.
+ */
+const navigate = (
+  world: WorldState,
+  enemy: Enemy,
+  target: Vec2,
+): { heading: number; blocked: boolean } => {
+  const { island } = world
+  const { position } = enemy
+  const direct = Math.atan2(target.y - position.y, target.x - position.x)
+
+  const dx = target.x - position.x
+  const dy = target.y - position.y
+  const length2 = dx * dx + dy * dy
+  const t =
+    length2 > 0
+      ? ((island.position.x - position.x) * dx + (island.position.y - position.y) * dy) / length2
+      : 0
+  const clamped = Math.max(0, Math.min(1, t))
+  const closest = { x: position.x + dx * clamped, y: position.y + dy * clamped }
+  const blockRadius = island.radius + enemy.radius + 4
+  const blocked = t > 0 && t < 1 && distance(closest, island.position) < blockRadius
+
+  if (!blocked) {
+    enemy.detourSide = 0
+    return { heading: direct, blocked: false }
+  }
+
+  const toCenter = Math.atan2(island.position.y - position.y, island.position.x - position.x)
+  if (enemy.detourSide === 0) enemy.detourSide = wrapAngle(direct - toCenter) >= 0 ? 1 : -1
+  const side = enemy.detourSide
+
+  const tangentRadius = blockRadius + 10
+  const d = distance(position, island.position)
+  if (d > tangentRadius) {
+    return { heading: toCenter + side * Math.asin(tangentRadius / d), blocked: true }
+  }
+  // Colado na ilha: anda pela tangente, abrindo um pouco para fora.
+  const radial = toCenter + Math.PI
+  return { heading: radial - side * (Math.PI / 2 - 0.3), blocked: true }
 }
 
 const stepSpawner = (world: WorldState, dt: number): void => {
@@ -379,20 +440,26 @@ const stepEnemies = (world: WorldState, dt: number): void => {
       player.position.x - enemy.position.x,
     )
     const dist = distance(enemy.position, player.position)
+    const { heading, blocked } = navigate(world, enemy, player.position)
     enemy.cooldown = Math.max(0, enemy.cooldown - dt)
 
     let speed: number
     if (enemy.kind === 'chaser') {
       const cfg = config.chaser
-      enemy.rotation = turnToward(enemy.rotation, toPlayer, cfg.turnRate * dt)
+      enemy.rotation = turnToward(enemy.rotation, heading, cfg.turnRate * dt)
       speed = cfg.speed
     } else {
       const cfg = config.shooter
-      enemy.rotation = turnToward(enemy.rotation, toPlayer, cfg.turnRate * dt)
-      speed = dist > cfg.preferredDistance ? cfg.speed : 0
+      enemy.rotation = turnToward(enemy.rotation, heading, cfg.turnRate * dt)
+      speed = dist > cfg.preferredDistance || blocked ? cfg.speed : 0
 
       const aimError = Math.abs(wrapAngle(toPlayer - enemy.rotation))
-      if (dist <= cfg.attackRange && aimError <= cfg.aimTolerance && enemy.cooldown === 0) {
+      if (
+        !blocked &&
+        dist <= cfg.attackRange &&
+        aimError <= cfg.aimTolerance &&
+        enemy.cooldown === 0
+      ) {
         const reach = enemy.radius + 6
         spawnProjectile(
           world,

@@ -14,6 +14,7 @@ export function ScenarioPanel() {
         <label htmlFor="scenario">Mock API scenario</label>
         <select
           id="scenario"
+          className="input"
           value={scenario}
           onChange={(e) => {
             if (!isScenario(e.target.value)) return
@@ -31,6 +32,7 @@ export function ScenarioPanel() {
       </div>
       <button
         type="button"
+        className="btn-secondary btn-sm"
         onClick={() => {
           setScenario('success')
           setCurrent('success')

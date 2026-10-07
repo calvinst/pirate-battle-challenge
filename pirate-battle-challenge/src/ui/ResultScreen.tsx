@@ -1,5 +1,6 @@
 import type { Registration } from '../api/useMatchSync'
 import type { MatchResult } from '../game/matchInfo'
+import { icons } from './icons'
 
 interface ResultScreenProps {
   result: MatchResult
@@ -29,28 +30,38 @@ export function ResultScreen({
 }: ResultScreenProps) {
   return (
     <main className="screen">
-      <h1>Match over</h1>
-      <dl>
-        <dt>Score</dt>
-        <dd>{result.score}</dd>
-        <dt>Time played</dt>
-        <dd>{result.duration.toFixed(1)}s</dd>
-        <dt>Reason</dt>
-        <dd>{REASONS[result.reason]}</dd>
-      </dl>
-      <p role="status">{REGISTRATION_TEXT[registration]}</p>
-      {registration === 'failed' && (
-        <button type="button" onClick={onRetry}>
-          Retry
-        </button>
-      )}
-      <div className="actions">
-        <button type="button" onClick={onPlayAgain} autoFocus>
-          Play Again
-        </button>
-        <button type="button" onClick={onMainMenu}>
-          Main Menu
-        </button>
+      <div className="panel">
+        <h1>Match over</h1>
+        <dl className="stats">
+          <dt>
+            <img src={icons.score} alt="" />
+            Score
+          </dt>
+          <dd>{result.score}</dd>
+          <dt>
+            <img src={icons.time} alt="" />
+            Time played
+          </dt>
+          <dd>{result.duration.toFixed(1)}s</dd>
+          <dt>Reason</dt>
+          <dd>{REASONS[result.reason]}</dd>
+        </dl>
+
+        <p role="status">{REGISTRATION_TEXT[registration]}</p>
+        {registration === 'failed' && (
+          <button type="button" className="btn-secondary btn-sm" onClick={onRetry}>
+            Retry
+          </button>
+        )}
+
+        <div className="stack">
+          <button type="button" className="btn" onClick={onPlayAgain} autoFocus>
+            Play Again
+          </button>
+          <button type="button" className="btn-secondary btn-sm" onClick={onMainMenu}>
+            Main Menu
+          </button>
+        </div>
       </div>
     </main>
   )

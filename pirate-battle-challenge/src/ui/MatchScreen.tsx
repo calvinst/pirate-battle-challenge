@@ -4,7 +4,9 @@ import type { HudSnapshot, MatchResult } from '../game/matchInfo'
 import type { GameTextures } from '../game/render/assets'
 import { createConfig, type GameOptions } from '../game/simulation/config'
 import { createTouchInput } from '../game/input/touch'
+import { Hud } from './Hud'
 import { TouchControls } from './TouchControls'
+import { useFocusTrap } from './useFocusTrap'
 import { useGameTextures } from './useGameTextures'
 
 interface MatchScreenProps {
@@ -21,25 +23,27 @@ export function MatchScreen(props: MatchScreenProps) {
 
   return (
     <main className="screen">
-      <h1>Pirate Battle</h1>
-      {state.status === 'loading' ? (
-        <>
-          <label htmlFor="asset-progress">Loading game assets…</label>
-          <progress id="asset-progress" max={1} value={state.progress} />
-        </>
-      ) : (
-        <div role="alert">
-          <p>Could not load the game assets.</p>
-          <div className="actions">
-            <button type="button" onClick={retry} autoFocus>
-              Try again
-            </button>
-            <button type="button" onClick={props.onQuit}>
-              Main Menu
-            </button>
+      <div className="panel">
+        <h1>Pirate Battle</h1>
+        {state.status === 'loading' ? (
+          <>
+            <label htmlFor="asset-progress">Loading game assets…</label>
+            <progress id="asset-progress" max={1} value={state.progress} />
+          </>
+        ) : (
+          <div role="alert">
+            <p>Could not load the game assets.</p>
+            <div className="stack">
+              <button type="button" className="btn btn-sm" onClick={retry} autoFocus>
+                Try again
+              </button>
+              <button type="button" className="btn-secondary btn-sm" onClick={props.onQuit}>
+                Main Menu
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   )
 }
@@ -55,7 +59,7 @@ function ActiveMatch({
   const [paused, setPaused] = useState(false)
   const [touch] = useState(createTouchInput)
   const [hud, setHud] = useState<HudSnapshot | null>(null)
-  const resumeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const pause = useCallback(() => {
     setPaused(true)
@@ -79,12 +83,15 @@ function ActiveMatch({
     }
   }, [pause])
 
-  useEffect(() => {
-    if (paused) resumeRef.current?.focus()
-  }, [paused])
+  useFocusTrap(dialogRef, paused)
+
+  // Só mudanças relevantes são anunciadas, nunca o tempo a cada segundo.
+  const lowHealth = hud !== null && hud.health / hud.maxHealth <= 0.25
+  const announcement = paused ? 'Game paused' : lowHealth ? 'Health critical' : ''
 
   return (
     <div className="match">
+      {hud && <Hud hud={hud} onPause={pause} />}
       <GameCanvas
         config={config}
         textures={textures}
@@ -95,34 +102,35 @@ function ActiveMatch({
       />
       <TouchControls input={touch} />
 
-      {hud && (
-        <div className="hud" role="group" aria-label="Match status">
-          <span>Score: {hud.score}</span>
-          <span>Time: {hud.timeRemaining}s</span>
-          <span>
-            Health: {hud.health}/{hud.maxHealth}
-          </span>
-          <button type="button" onClick={pause}>
-            Pause
-          </button>
-        </div>
-      )}
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
 
       {paused && (
-        <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="pause-title">
-          <h2 id="pause-title">Paused</h2>
-          <button
-            type="button"
-            ref={resumeRef}
-            onClick={() => {
-              setPaused(false)
-            }}
+        <div className="overlay">
+          <div
+            ref={dialogRef}
+            className="panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pause-title"
           >
-            Resume
-          </button>
-          <button type="button" onClick={onQuit}>
-            Main Menu
-          </button>
+            <h2 id="pause-title">Paused</h2>
+            <div className="stack">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  setPaused(false)
+                }}
+              >
+                Resume
+              </button>
+              <button type="button" className="btn-secondary btn-sm" onClick={onQuit}>
+                Main Menu
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -129,5 +129,5 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a partida usa o snapshot inicial da config
   }, [])
 
-  return <div ref={hostRef} className="game-host" />
+  return <div ref={hostRef} className="game-host" role="img" aria-label="Pirate Battle arena" />
 }
