@@ -2,7 +2,7 @@
 
 Top-down 2D naval shooter built with React, TypeScript (strict) and PixiJS. Sail around an island, sink Chaser and Shooter ships and score points until the timer runs out or your ship is destroyed.
 
-- **Live demo:** `<DEPLOY_URL>` (replace with the public URL)
+- **Live demo:** https://pirate-battle-challenge-eight.vercel.app/
 - **Architecture notes:** [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Original challenge statement:** kept below, after the [divider](#original-readme-and-challenge-statement).
 
@@ -184,9 +184,13 @@ src/
 e2e/              # Playwright tests (browser flows and node-level simulation tests)
 ```
 
+## Performance
+
+Profiled on the production build (Chromium, Intel UHD 620 GPU, 1280 x 720): a 3-minute match averaged **59.98 FPS** with a **p95 frame time of 17.8 ms** and at most 24 entities on screen, and five start-play-quit cycles showed no growth in DOM nodes or listeners (JS heap +0.59 MB between cycles 1 and 5). Hardware, method, raw data, a software-WebGL comparison (13 FPS, rasterization bound) and limitations are in [docs/performance/PERFORMANCE.md](docs/performance/PERFORMANCE.md). Reproduce with `npm run perf`.
+
 ## Known limitations
 
-- Performance has not been profiled yet: there are no recorded frame rate, frame-time percentile or memory measurements.
+- Profiling covers one machine and browser (desktop Chromium on Windows); mobile devices were not profiled, and GPU memory was not measured.
 - Only part of the network failures from the challenge are simulated (see [Network scenarios](#network-scenarios)). Variable latency, out-of-order responses, 4xx responses and per-endpoint failures are not implemented.
 - Ship sprites use the 1x assets.
 - Enemies use a tangent detour around the island, not full path-finding.

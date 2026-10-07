@@ -15,6 +15,12 @@ export default defineConfig({
     deviceScaleFactor: 1,
     locale: 'en-US',
     timezoneId: 'UTC',
+    // Sem isso o Chromium headless cai no WebGL por software (SwiftShader), que mede a CPU e não a GPU.
+    launchOptions: {
+      args: process.env.PERF_SOFTWARE_GL
+        ? []
+        : ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'],
+    },
   },
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,

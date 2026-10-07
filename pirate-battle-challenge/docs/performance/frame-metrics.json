@@ -5,7 +5,7 @@
     "mode": "real time, player invulnerable so the match runs the full duration"
   },
   "environment": {
-    "measuredAt": "2026-10-07T12:41:18.814Z",
+    "measuredAt": "2026-10-07T12:47:30.278Z",
     "cpu": "Intel(R) Core(TM) i7-8565U CPU @ 1.80GHz",
     "logicalCores": 8,
     "memoryGB": 8,
@@ -16,39 +16,39 @@
       "height": 720
     },
     "devicePixelRatio": 1,
-    "webglRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+    "webglRenderer": "ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00003EA0) Direct3D11 vs_5_0 ps_5_0, D3D11)"
   },
   "report": {
-    "frames": 2358,
-    "seconds": 180.42380000019074,
-    "fps": 13.069229225842196,
+    "frames": 10796,
+    "seconds": 179.99010000014306,
+    "fps": 59.98107673695064,
     "frameTimeMs": {
-      "mean": 76.51560644622168,
-      "p50": 75.30000019073486,
-      "p95": 92.70000004768372,
-      "p99": 100.40000009536743,
-      "max": 665.0999999046326
+      "mean": 16.671924786971385,
+      "p50": 16.600000143051147,
+      "p95": 17.799999952316284,
+      "p99": 18.399999856948853,
+      "max": 73.20000004768372
     },
     "simulationMs": {
-      "mean": 0.267430026921506,
-      "p50": 0.20000004768371582,
-      "p95": 0.7000000476837158,
-      "p99": 1.1000001430511475,
-      "max": 2.5
+      "mean": 0.07625972546661902,
+      "p50": 0.09999990463256836,
+      "p95": 0.2999999523162842,
+      "p99": 0.39999985694885254,
+      "max": 1.5999999046325684
     },
     "renderMs": {
-      "mean": 0.41200169564506783,
-      "p50": 0.39999985694885254,
-      "p95": 0.7999999523162842,
-      "p99": 1.2000000476837158,
-      "max": 4.400000095367432
+      "mean": 0.2641070778169381,
+      "p50": 0.2999999523162842,
+      "p95": 0.40000009536743164,
+      "p99": 0.5999999046325684,
+      "max": 6.700000047683716
     },
-    "slowFrames": 2358,
+    "slowFrames": 5,
     "entities": {
-      "enemiesMax": 9,
-      "projectilesMax": 13,
-      "totalMax": 22,
-      "totalMean": 11.618320610687023
+      "enemiesMax": 11,
+      "projectilesMax": 14,
+      "totalMax": 24,
+      "totalMean": 11.94933308632827
     }
   }
 }

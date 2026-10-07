@@ -1,0 +1,66 @@
+{
+  "scenario": "five cycles of: Play, 20 s of scripted play with enemies, Pause, Main Menu; forced GC before each sample",
+  "environment": {
+    "measuredAt": "2026-10-07T12:43:08.412Z",
+    "cpu": "Intel(R) Core(TM) i7-8565U CPU @ 1.80GHz",
+    "logicalCores": 8,
+    "memoryGB": 8,
+    "os": "Windows_NT 10.0.26200",
+    "browser": "Chromium 153.0.8010.12 (headless, Playwright)",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "devicePixelRatio": 1,
+    "webglRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "samples": [
+    {
+      "label": "menu, before the first match",
+      "jsHeapMB": 2.58,
+      "domNodes": 202,
+      "eventListeners": 158,
+      "canvases": 0
+    },
+    {
+      "label": "menu, after cycle 1",
+      "jsHeapMB": 6.45,
+      "domNodes": 209,
+      "eventListeners": 183,
+      "canvases": 0
+    },
+    {
+      "label": "menu, after cycle 2",
+      "jsHeapMB": 6.64,
+      "domNodes": 209,
+      "eventListeners": 183,
+      "canvases": 0
+    },
+    {
+      "label": "menu, after cycle 3",
+      "jsHeapMB": 6.8,
+      "domNodes": 209,
+      "eventListeners": 183,
+      "canvases": 0
+    },
+    {
+      "label": "menu, after cycle 4",
+      "jsHeapMB": 6.9,
+      "domNodes": 209,
+      "eventListeners": 183,
+      "canvases": 0
+    },
+    {
+      "label": "menu, after cycle 5",
+      "jsHeapMB": 7.03,
+      "domNodes": 209,
+      "eventListeners": 183,
+      "canvases": 0
+    }
+  ],
+  "growthFromCycle1ToCycle5": {
+    "jsHeapMB": 0.58,
+    "domNodes": 0,
+    "eventListeners": 0
+  }
+}
