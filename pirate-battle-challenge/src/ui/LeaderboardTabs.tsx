@@ -54,6 +54,7 @@ function QueryState<T>({
 
   return (
     <>
+      {query.isError && <p role="alert">Could not refresh the data. Showing the last loaded page.</p>}
       <table aria-busy={query.isFetching}>
         <thead>
           <tr>

@@ -12,6 +12,7 @@ import { createPixiRenderer, type Renderer } from './render/pixiRenderer'
 import type { GameTextures } from './render/assets'
 import type { GameConfig } from './simulation/config'
 import { createInput, createWorld, stepWorld } from './simulation/world'
+import { createSnapshot, e2eSeed, isE2E } from './testHook'
 
 interface GameCanvasProps {
   /** lida apenas ao montar; mudanças valem para a próxima partida */
@@ -50,7 +51,7 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
 
     const abort = new AbortController()
     let renderer: Renderer | undefined
-    const world = createWorld(config)
+    const world = createWorld(config, e2eSeed())
     const keyboard = createKeyboardInput()
     keyboard.setEnabled(!pausedRef.current)
     keyboardRef.current = keyboard
@@ -60,32 +61,51 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
     const combined = createInput()
     callbacks.current.onHud(lastHud)
 
+    const FIXED_STEP = 1 / 60
+
+    const update = (dt: number) => {
+      mergeInputs(keyboard.state, touch.state, combined)
+      stepWorld(world, combined, dt)
+
+      const hud = createHudSnapshot(world)
+      if (
+        hud.score !== lastHud.score ||
+        hud.timeRemaining !== lastHud.timeRemaining ||
+        hud.health !== lastHud.health
+      ) {
+        lastHud = hud
+        callbacks.current.onHud(hud)
+      }
+
+      if (world.match.status === 'over' && !finished) {
+        finished = true
+        callbacks.current.onFinish(createMatchResult(world))
+      }
+    }
+
     createPixiRenderer(host, world, textures, abort.signal)
       .then((r) => {
         if (!r) return
         renderer = r
+
+        if (isE2E) {
+          // Modo manual: o tempo da simulação só avança por `advance`.
+          r.render(world)
+          window.__game = {
+            advance: (seconds) => {
+              const steps = Math.round(seconds / FIXED_STEP)
+              for (let i = 0; i < steps; i++) update(FIXED_STEP)
+              r.render(world)
+            },
+            snapshot: () => createSnapshot(world),
+          }
+          return
+        }
+
         const loop = createGameLoop({
-          fixedStep: 1 / 60,
+          fixedStep: FIXED_STEP,
           maxFrameTime: 0.25,
-          update: (dt) => {
-            mergeInputs(keyboard.state, touch.state, combined)
-            stepWorld(world, combined, dt)
-
-            const hud = createHudSnapshot(world)
-            if (
-              hud.score !== lastHud.score ||
-              hud.timeRemaining !== lastHud.timeRemaining ||
-              hud.health !== lastHud.health
-            ) {
-              lastHud = hud
-              callbacks.current.onHud(hud)
-            }
-
-            if (world.match.status === 'over' && !finished) {
-              finished = true
-              callbacks.current.onFinish(createMatchResult(world))
-            }
-          },
+          update,
           render: () => {
             r.render(world)
           },
@@ -99,6 +119,7 @@ export function GameCanvas({ config, textures, paused, touch, onHud, onFinish }:
 
     return () => {
       abort.abort()
+      delete window.__game
       keyboard.destroy()
       keyboardRef.current = null
       loopRef.current?.stop()
